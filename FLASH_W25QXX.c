@@ -23,11 +23,33 @@
 * ***********************************************************************/
 
 #include "FLASH_W25QXX.h"
-#include "application.h"
+
+
+//#include "application.h"
+
+uint8_t ARM_STM32_SPI_Send_Get_Data_Spi1(uint8_t command)
+{
+    uint8_t readData;
+    HAL_SPI_TransmitReceive(&hspi1,&command,&readData,1,10);
+    return readData;
+//    if(HAL_SPI_Receive(&hspi1, p->readData, p->length, 10) != HAL_OK)
+}
+
+void APPLICATION_SPIFLASH_Cs_Low(void)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+}
+
+void APPLICATION_SPIFLASH_Cs_High(void)
+{
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+}
+
+
 
 //FUNCTION POINTERS FOR INTERNAL LIBRARY USE
 //SET THESE TO YOUR APPLICATION FUNCTIONS
-static uint16_t (*spi_send_get_function)(uint16_t) = &ARM_STM32_SPI_Send_Get_Data_Spi1;
+static uint8_t (*spi_send_get_function)(uint8_t) = &ARM_STM32_SPI_Send_Get_Data_Spi1;
 static void (*spi_cs_low_function)(void) = &APPLICATION_SPIFLASH_Cs_Low;
 static void (*spi_cs_high_function)(void) = & APPLICATION_SPIFLASH_Cs_High;
 
@@ -42,6 +64,8 @@ void FLASH_W25QXX_Enable_Reset(void)
 	(*spi_cs_low_function)();
 		
 	(*spi_send_get_function)(FLASH_W25QXX_COMMAND_ENABLE_RESET);
+
+    (*spi_cs_high_function)();
 }
 
 void FLASH_W25QXX_Do_Reset(void)
@@ -55,6 +79,8 @@ void FLASH_W25QXX_Do_Reset(void)
 	(*spi_cs_low_function)();
 		
 	(*spi_send_get_function)(FLASH_W25QXX_COMMAND_RESET);
+
+    (*spi_cs_high_function)();
 }
 
 uint8_t FLASH_W25QXX_Get_Status_Register(uint8_t register_num)
@@ -65,25 +91,27 @@ uint8_t FLASH_W25QXX_Get_Status_Register(uint8_t register_num)
 	{
 		(*spi_send_get_function)(FLASH_W25QXX_COMMAND_READ_STATUS_REG_1);
 		//DEASSERT CS LINE
-		(*spi_cs_high_function)();
+//		(*spi_cs_high_function)();
 		return (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	}
 	else if(register_num == 2)
 	{
 		(*spi_send_get_function)(FLASH_W25QXX_COMMAND_READ_STATUS_REG_2);
 		//DEASSERT CS LINE
-		(*spi_cs_high_function)();
+//		(*spi_cs_high_function)();
 		return (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	}
-	(*spi_cs_high_function)();
+//	(*spi_cs_high_function)();
 	return 0;
 }
 
 uint8_t FLASH_W25QXX_Get_Busy_Status(void)
 {
 	//RETURN THE BUSY STATUS OF THE DEVICE
-	
+	(*spi_cs_low_function)();
 	uint8_t val = FLASH_W25QXX_Get_Status_Register(1);
+    (*spi_cs_high_function)();
+	
 	return (val & 0x01);
 }
 
@@ -98,6 +126,8 @@ void FLASH_W25QXX_Write_Enable(void)
 	(*spi_cs_low_function)();
 		
 	(*spi_send_get_function)(FLASH_W25QXX_COMMAND_WRITE_ENABLE);
+
+    (*spi_cs_high_function)();
 }
 
 void FLASH_W25QXX_Write_Disable(void)
@@ -111,6 +141,8 @@ void FLASH_W25QXX_Write_Disable(void)
 	(*spi_cs_low_function)();
 		
 	(*spi_send_get_function)(FLASH_W25QXX_COMMAND_WRITE_DISABLE);
+
+    (*spi_cs_high_function)();
 }
 
 uint16_t FLASH_W25QXX_Get_Manufacturer_Id(void)
@@ -132,7 +164,8 @@ uint16_t FLASH_W25QXX_Get_Manufacturer_Id(void)
 	temp = (*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	temp = temp << 8;
 	temp |= (*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
-	
+
+    (*spi_cs_high_function)();
 	return temp;
 }
 
@@ -161,6 +194,8 @@ void FLASH_W25QXX_Get_Unique_Id(uint8_t* ret_ptr)
 	ret_ptr[5] = (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	ret_ptr[6] = (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	ret_ptr[7] = (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
+
+    (*spi_cs_high_function)();
 }
 
 
@@ -178,11 +213,14 @@ void FLASH_W25QXX_Get_Jedec_Id(uint8_t* ret_ptr)
 	ret_ptr[0] = (*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	ret_ptr[1] = (*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	ret_ptr[2] = (*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);	
+    
+    (*spi_cs_high_function)();
 }
 
 
 uint8_t FLASH_W25QXX_Read_Data_Byte(uint32_t add)
 {
+    uint8_t readData;
 	//READ AND RETURN BYTE OF DATA READ FROM THE SPECIFIED ADDRESS
 	//AUTO INCREAMENTS THE READ ADDRESS FOR THE NEXT READ OPERATION
 	
@@ -199,7 +237,11 @@ uint8_t FLASH_W25QXX_Read_Data_Byte(uint32_t add)
 	(*spi_send_get_function)(add_hi);
 	(*spi_send_get_function)(add_mid);
 	(*spi_send_get_function)(add_lo);
-	return (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
+
+    readData = (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP); 
+    (*spi_cs_high_function)();
+    
+	return readData;
 }
 
 
@@ -225,6 +267,8 @@ void FLASH_W25QXX_Read_Data_Block(uint32_t add, uint8_t* data_ptr, uint32_t read
 	{
 		data_ptr[i] = (uint8_t)(*spi_send_get_function)(FLASH_W25QXX_COMMAND_NOP);
 	}
+
+    (*spi_cs_high_function)();
 }
 
 void FLASH_W25QXX_Write_Status_Registers(uint8_t val_stat_reg_1, uint8_t val_stat_reg_2)
@@ -240,6 +284,8 @@ void FLASH_W25QXX_Write_Status_Registers(uint8_t val_stat_reg_1, uint8_t val_sta
 	(*spi_send_get_function)(FLASH_W25QXX_COMMAND_WRITE_STATUS_REGS);
 	(*spi_send_get_function)(val_stat_reg_1);
 	(*spi_send_get_function)(val_stat_reg_2);
+
+    (*spi_cs_high_function)();
 }
 
 
@@ -261,6 +307,8 @@ void FLASH_W25QXX_Sector_Erase_4kb(uint32_t add_sector)
 	(*spi_send_get_function)(add_hi);
 	(*spi_send_get_function)(add_mid);
 	(*spi_send_get_function)(add_lo);
+
+    (*spi_cs_high_function)();
 }
 
 void FLASH_W25QXX_Block_Erase_32Kb(uint32_t add_block)
@@ -281,6 +329,8 @@ void FLASH_W25QXX_Block_Erase_32Kb(uint32_t add_block)
 	(*spi_send_get_function)(add_hi);
 	(*spi_send_get_function)(add_mid);
 	(*spi_send_get_function)(add_lo);
+    
+    (*spi_cs_high_function)();
 }
 
 void FLASH_W25QXX_Block_Erase_64Kb(uint32_t add_block)
@@ -301,6 +351,8 @@ void FLASH_W25QXX_Block_Erase_64Kb(uint32_t add_block)
 	(*spi_send_get_function)(add_hi);
 	(*spi_send_get_function)(add_mid);
 	(*spi_send_get_function)(add_lo);
+
+    (*spi_cs_high_function)();
 }
 
 void FLASH_W25QXX_Chip_Erase(void)
@@ -314,5 +366,36 @@ void FLASH_W25QXX_Chip_Erase(void)
 	(*spi_cs_low_function)();
 	
 	(*spi_send_get_function)(FLASH_W25QXX_COMMAND_CHIP_ERASE);
+
+    (*spi_cs_high_function)();
+}
+
+
+
+void FLASH_W25QXX_Write_Block(uint32_t add,uint8_t * data_ptr,uint32_t write_len)
+{
+    //ERASE THE COMPLETE CHIP
+    //WAIT FOR THE FLASH TO BE FREE
+    while (FLASH_W25QXX_Get_Busy_Status() != 0) {
+    };
+    FLASH_W25QXX_Write_Enable();
+    //REASSERT CS LINE
+    uint8_t add_hi = (uint8_t) ((add & 0x00FF0000) >> 16);
+    uint8_t add_mid = (uint8_t) ((add & 0x0000FF00) >> 8);
+    uint8_t add_lo = (uint8_t) (add);
+
+    write_len &= 0x1ff;
+    (*spi_cs_low_function) ();
+
+    (*spi_send_get_function) (FLASH_W25QXX_COMMAND_WRITE);
+    (*spi_send_get_function) (add_hi);
+    (*spi_send_get_function) (add_mid);
+    (*spi_send_get_function) (add_lo);
+
+    for (uint32_t i = 0; i < write_len; i++) {
+        (*spi_send_get_function) (*data_ptr++);
+    }
+
+    (*spi_cs_high_function) ();
 }
 

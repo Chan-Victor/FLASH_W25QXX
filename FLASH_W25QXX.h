@@ -27,6 +27,8 @@
 #define	_FLASH_W25QXX_
 
 #define FLASH_W25QXX_COMMAND_NOP								0x00
+#define FLASH_W25QXX_COMMAND_WRITE								0x02
+
 #define FLASH_W25QXX_COMMAND_ENABLE_RESET				0x66
 #define FLASH_W25QXX_COMMAND_RESET							0x99
 #define FLASH_W25QXX_COMMAND_MANUFACTURER_ID		0x90
@@ -45,9 +47,11 @@
 #define FLASH_W25QXX_COMMAND_FAST_READ_DATA     0x0B
 
 #include <stdint.h>
-#include "ARM_STM32_SPI.h"
+#include "stm32f1xx_hal.h"
+#include "main.h"
+//#include "ARM_STM32_SPI.h"
 
-static uint16_t (*spi_send_get_function)(uint16_t);
+static uint8_t (*spi_send_get_function)(uint8_t);
 static void (*spi_cs_low_function)(void);
 static void (*spi_cs_high_function)(void);
 
@@ -73,6 +77,7 @@ void FLASH_W25QXX_Block_Erase_32Kb(uint32_t add_block);
 void FLASH_W25QXX_Block_Erase_64Kb(uint32_t add_block);
 void FLASH_W25QXX_Chip_Erase(void);
 
+void FLASH_W25QXX_Write_Block(uint32_t add,uint8_t * data_ptr,uint32_t write_len);
 
 
 #endif
